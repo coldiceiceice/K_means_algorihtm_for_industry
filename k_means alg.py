@@ -1,16 +1,32 @@
 import pandas as pd
 import numpy as np
+from mpl_toolkits.mplot3d import Axes3D
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
-from sklearn import preprocessing
 
+
+# Функция подсчета каждой точки класса A
+def scoreCoefA(revenue, profitability, turnover):
+    return round(-0.0915 * revenue - 0.8364 * profitability + 4.062 * turnover - 0.5406, 4)
+
+
+# Функция подсчета каждой точки класса В
+def scoreCoefB(revenue, profitability, turnover):
+    return round(-6.6415 * revenue + 6.6732 * profitability + 46.3427 * turnover - 1.4697, 4)
+
+
+# Функция подсчета каждой точки класса С
+def scoreCoefC(revenue, profitability, turnover):
+    return round(13.4356 * revenue - 11.9525 * profitability - 99.4554 * turnover - 63.3037, 4)
+
+
+#   Считывание данных предприятия (excel формат)
 cust_df = pd.read_excel('proizvodsvo.xlsx')
-df = cust_df.drop('Завод', axis=1)
-df = df.dropna()
-df = df.reset_index(drop=True)
-x = df.values
+df = cust_df.drop('Завод', axis=1)  # Удаляем столбец названий, в расчетах он не нужен
+df = df.dropna() # Удаляем nan значения
+df = df.reset_index(drop=True)  # Сопоставляем индексы
+x = df.values  # Отделяем значения таблицы
 
 x = np.nan_to_num(x)
 print('Преобразование в список', '\n', x, '\n')
@@ -18,84 +34,63 @@ print('Преобразование в список', '\n', x, '\n')
 clus_dataset = StandardScaler().fit_transform(x)
 print('Вычисление параметров стандартного отклонения:', '\n', clus_dataset, '\n')
 
-cluster_num = 3
-k_means = KMeans(init="k-means++", n_clusters= cluster_num, random_state=0,n_init=12)
+# Реализация кластеризации
+k_means = KMeans(init="k-means++", n_clusters=3, random_state=0, n_init=12) # Настройка метода, задаем 3 класса
 k_means.fit(x)
-labels = k_means.labels_
+labels = k_means.labels_ # Получаем список классов
 print('Кластеризация:', '\n', labels, '\n')
 
-df['Класс'] = labels
+df['Класс'] = labels  # Создаем и добавляем новую таблицу с классами предприятий
 df.groupby('Класс').mean()
 print(df, '\n', '*' * 10)
-
 df = df.replace(r'\\n', ' ', regex=True)
 
-# Выдает нули для каждого класса
-# X = df[['Выручка от ', 'Рентабельность ', 'Оборачиваемость']]
-# for i in range(3):
-#     X_cluster = X[labels == i].values
-#     y_cluster = df['Класс'][labels == i].values
-#     lda = LinearDiscriminantAnalysis()
-#     lda.fit(X_cluster, y_cluster)
-#
-#     print(f"Кластер {i}:{lda.coef_[0][0]} * Рентабельность + {lda.coef_[0][1]} * Оборачиваемость + {lda.intercept_[0]}")
-#
-#     print(lda.intercept_)
-#     print(lda.coef_)
-#     print(lda.predict(X_cluster))
-
+# Создаем отдельные таблицы для каждого класса
 classA = df.copy(deep=True)
 classB = df.copy(deep=True)
 classC = df.copy(deep=True)
 
 # Разбиение на таблицы классов
-classA = classA[classA['Класс'] == 0]
-classB = classB[classB['Класс'] == 1]
-classC = classC[classC['Класс'] == 2]
-
+classA = classA[classA['Класс'] == 0]   # Худшая
+classB = classB[classB['Класс'] == 1]   # Средняя
+classC = classC[classC['Класс'] == 2]   # Лучшая
 
 # Вывод классов
-print('Класс А', '\n', classA.head(10), '\n', '-' * 35)
-print('Класс В', '\n', classB.head(10), '\n', '-' * 35)
-print('Класс С', '\n', classC.head(10), '\n', '-' * 35)
+print('Проблемное предприятие с высоким риском банкротства:', '\n', classA.head(10), '\n', '-' * 35)
+print('Рискованное предприятие:', '\n', classB.head(10), '\n', '-' * 35)
+print('Предприятия с хорошим запасом финансовой устойчивости', '\n', classC.head(10), '\n', '-' * 35)
 
 # Выборка данных для дискриминантного анализа
-class_x = df[['Выручка от ', 'Оборачиваемость', 'Рентабельность ']]
+class_x = df[['Выручка', 'Рентабельность', 'Оборачиваемость']]
 class_y = df['Класс']
 
+# Алгоритм дискриминантного анализа
 lda = LinearDiscriminantAnalysis()
-lda.fit(class_x, class_y)
-# sep_functions = pd.DataFrame(lda.coef_, columns=class_x.columns, index=lda.classes_)
-# print('Разделительные функции: ', '\n', sep_functions)
+lda.fit(class_x, class_y) # Вносим данные для выборки
+
+
+# Вывод формул
 print()
-print(f"f1= {lda.coef_[0][0]} * Выручка от + {lda.coef_[0][1]} * Рентабельность + {lda.coef_[0][2]} *"
-      f" Оборачиваемость + {lda.intercept_[0]}")
+print(
+    f"f1= {round(lda.coef_[0][0], 4)} * Выручка + {round(lda.coef_[0][1], 4)} * Рентабельность + {round(lda.coef_[0][2], 4)} *"
+    f" Оборачиваемость + {round(lda.intercept_[0], 4)}")
 
-print(f"f2= {lda.coef_[1][0]} * Выручка от + {lda.coef_[1][1]} * Рентабельность + {lda.coef_[1][2]} *"
-      f" Оборачиваемость + {lda.intercept_[1]}")
+print(
+    f"f2= {round(lda.coef_[1][0], 4)} * Выручка + {round(lda.coef_[1][1], 4)} * Рентабельность + {round(lda.coef_[1][2], 4)} *"
+    f" Оборачиваемость + {round(lda.intercept_[1], 4)}")
 
-print(f"f3= {lda.coef_[2][0]} * Выручка от + {lda.coef_[2][1]} * Рентабельность + {lda.coef_[2][2]} *"
-      f" Оборачиваемость + {lda.intercept_[2]}")
+print(
+    f"f3= {round(lda.coef_[2][0], 4)} * Выручка + {round(lda.coef_[2][1], 4)} * Рентабельность + {round(lda.coef_[2][2], 4)} *"
+    f" Оборачиваемость + {round(lda.intercept_[2], 4)}")
 
+print('\nХудший')
+for i in range(classA.shape[0]):
+    print(scoreCoefA(classA.iloc[i][0], classA.iloc[i][1], classA.iloc[i][2]))
 
+print('\nСредний')
+for i in range(classB.shape[0]):
+    print(scoreCoefB(classB.iloc[i][0], classB.iloc[i][1], classB.iloc[i][2]))
 
-# print(lda.intercept_[3])
-# # print(lda.coef_)
-# qwe = lda.decision_function(class_x)
-# # print(qwe)
-
-# Здесь первая версия анализа, хз работает или нет
-
-# classA_x = classA[['Выручка от ', 'Оборачиваемость', 'Рентабельность ']]
-# classA_y = classA['Класс']
-# # Дискриминантный анализ
-# lda = LinearDiscriminantAnalysis()
-# labels = preprocessing.LabelEncoder()
-# classA_y = labels.fit_transform(classA_y)
-# lda.fit(classA_x, classA_y)
-# coefficients = lda.coef_
-# intercept = lda.intercept_
-#
-# # Вывод формулы
-# print(f"{lda.coef_[0][0]} * Выручка от + {lda.coef_[0][1]} * Рентабельность + {lda.coef_[0][2]} * Оборачиваемость + {lda.intercept_[0]}")
-
+print('\nНаилудший')
+for i in range(classC.shape[0]):
+    print(scoreCoefC(classC.iloc[i][0], classC.iloc[i][1], classC.iloc[i][2]))
